@@ -5,21 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quick Math</title>
     
-    <meta name="fc:miniapp" content='{
-        "version":"1",
-        "imageUrl":"https://quick-mathquiz.vercel.app/image.png",
-        "button":{
-            "title":"Play Quick Math & Earn!",
-            "action":{
-                "type":"launch_frame",
-                "name":"Quick Math",
-                "url":"https://quick-mathquiz.vercel.app",
-                "splashImageUrl":"https://quick-mathquiz.vercel.app/splash.png",
-                "splashBackgroundColor":"#cce5ff"
-            }
-        }
-    }' />
-
     <style>
         * {
             margin: 0;
@@ -510,20 +495,6 @@
     </style>
 </head>
 <body>
-
-  <!-- Add these audio elements -->
-    <audio id="correctSound" preload="auto">
-        <source src="sounds/correct.mp3" type="audio/mpeg">
-    </audio>
-    <audio id="wrongSound" preload="auto">
-        <source src="sounds/wrong.mp3" type="audio/mpeg">
-    </audio>
-    <audio id="winSound" preload="auto">
-        <source src="sounds/win.mp3" type="audio/mpeg">
-    </audio>
-    
-    <div class="game-container">
-        
     <div class="game-container">
         <div class="game-header">
             <div class="header-top">
@@ -617,686 +588,167 @@
     </div>
 
     <script type="module">
-        import { sdk } from 'https://esm.sh/@farcaster/miniapp-sdk';
-        sdk.actions.ready({ disableNativeGestures: true });
+        import { createAppKit } from 'https://esm.sh/@reown/appkit';
+        import { EthersAdapter } from 'https://esm.sh/@reown/appkit-adapter-ethers';
+        import { base } from 'https://esm.sh/@reown/appkit/networks';
+        import { ethers } from 'https://esm.sh/ethers@6.7.0';
 
-        let userProfile = null;
-        let farcasterFID = null;
+        const CONTRACT_ADDRESS = '0xadd4fb9ef92b6de07c970d9a1a2ee9f9f175de54';
+        const PROJECT_ID = 'e0dd881bad824ac3418617434a79f917'; // Replace with your Reown project ID
 
-        async function fetchFarcasterProfile() {
-            try {
-                const context = await sdk.context;
-                
-                if (context?.user?.fid) {
-                    farcasterFID = context.user.fid;
-                    const NEYNAR_API_KEY = '8BF81B8C-C491-4735-8E1C-FC491FF048D4';
-                    
-                    const response = await fetch(`https://api.neynar.com/v2/farcaster/user/bulk?fids=${farcasterFID}`, {
-                        method: 'GET',
-                        headers: {
-                            'Accept': 'application/json',
-                            'api_key': NEYNAR_API_KEY
-                        }
-                    });
-                    
-                    if (response.ok) {
-                        const data = await response.json();
-                        if (data.users && data.users.length > 0) {
-                            userProfile = data.users[0];
-                            updateProfileUI();
-                        }
-                    }
-                } else {
-                    userProfile = {
-                        display_name: "Demo Player",
-                        username: "player",
-                        pfp_url: null
-                    };
-                    farcasterFID = 0;
-                    updateProfileUI();
-                }
-            } catch (error) {
-                console.log('Failed to fetch profile:', error);
-                userProfile = {
-                    display_name: "Demo Player",
-                    username: "player",
-                    pfp_url: null
-                };
-                farcasterFID = 0;
-                updateProfileUI();
+        const CONTRACT_ABI = [
+            {
+                "inputs": [{"internalType": "uint256", "name": "farcasterFID", "type": "uint256"}],
+                "name": "startGame",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {"internalType": "uint256", "name": "completionTime", "type": "uint256"},
+                    {"internalType": "uint256", "name": "farcasterFID", "type": "uint256"},
+                    {"internalType": "uint256", "name": "questionsCorrect", "type": "uint256"}
+                ],
+                "name": "submitScore",
+                "outputs": [{"internalType": "uint256", "name": "position", "type": "uint256"}],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {"internalType": "uint256", "name": "farcasterFID", "type": "uint256"},
+                    {"internalType": "uint256", "name": "questionsCorrect", "type": "uint256"}
+                ],
+                "name": "claimReward",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [{"internalType": "uint256", "name": "count", "type": "uint256"}],
+                "name": "getTopPlayers",
+                "outputs": [{
+                    "components": [
+                        {"internalType": "address", "name": "player", "type": "address"},
+                        {"internalType": "uint256", "name": "farcasterFID", "type": "uint256"},
+                        {"internalType": "uint256", "name": "completionTime", "type": "uint256"},
+                        {"internalType": "uint256", "name": "timestamp", "type": "uint256"}
+                    ],
+                    "internalType": "struct MathDropGame.LeaderboardEntry[]",
+                    "name": "",
+                    "type": "tuple[]"
+                }],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [{"internalType": "address", "name": "player", "type": "address"}],
+                "name": "getPlayerStats",
+                "outputs": [
+                    {"internalType": "uint256", "name": "bestTime", "type": "uint256"},
+                    {"internalType": "uint256", "name": "totalGames", "type": "uint256"},
+                    {"internalType": "uint256", "name": "totalRewardsClaimed", "type": "uint256"},
+                    {"internalType": "uint256", "name": "lastPlayTimestamp", "type": "uint256"}
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [{"internalType": "uint256", "name": "farcasterFID", "type": "uint256"}],
+                "name": "getRemainingClaimsForFID",
+                "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+                "stateMutability": "view",
+                "type": "function"
             }
-        }
+        ];
 
-        function updateProfileUI() {
-            if (!userProfile) return;
-
-            const headerAvatar = document.getElementById('headerAvatar');
-
-            if (userProfile.pfp_url) {
-                headerAvatar.innerHTML = `<img src="${userProfile.pfp_url}" alt="Avatar">`;
-            } else {
-                const firstLetter = userProfile.display_name ? userProfile.display_name.charAt(0).toUpperCase() : '?';
-                headerAvatar.textContent = firstLetter;
-            }
-
-            headerAvatar.classList.add('show');
-        }
-
-        window.userProfile = userProfile;
-        window.getFarcasterFID = () => farcasterFID;
-
-        (async () => {
-            try {
-                if (sdk?.actions?.addMiniApp) {
-                    await sdk.actions.addMiniApp();
-                }
-                await fetchFarcasterProfile();
-            } catch (err) {
-                console.log('Auto addMiniApp skipped:', err.message || err);
-                await fetchFarcasterProfile();
-            }
-        })();
-    </script>
-
-    <script type="module">
-        import {
-            createConfig,
-            connect,
-            writeContract,
-            readContract,
-            getAccount,
-            waitForTransactionReceipt,
-            watchAccount,
-            http
-        } from 'https://esm.sh/@wagmi/core';
-        
-        import { base } from 'https://esm.sh/@wagmi/core/chains';
-        import { farcasterMiniApp } from 'https://esm.sh/@farcaster/miniapp-wagmi-connector';
-
-const CONTRACT_ADDRESS = '0xadd4fb9ef92b6de07c970d9a1a2ee9f9f175de54';
-
-const CONTRACT_ABI = [
-    {
-        "inputs": [
-            {"internalType": "uint256", "name": "farcasterFID", "type": "uint256"}
-        ],
-        "name": "startGame",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {"internalType": "uint256", "name": "completionTime", "type": "uint256"},
-            {"internalType": "uint256", "name": "farcasterFID", "type": "uint256"},
-            {"internalType": "uint256", "name": "questionsCorrect", "type": "uint256"}
-        ],
-        "name": "submitScore",
-        "outputs": [{"internalType": "uint256", "name": "position", "type": "uint256"}],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {"internalType": "uint256", "name": "farcasterFID", "type": "uint256"},
-            {"internalType": "uint256", "name": "questionsCorrect", "type": "uint256"}
-        ],
-        "name": "claimReward",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [{"internalType": "uint256", "name": "count", "type": "uint256"}],
-        "name": "getTopPlayers",
-        "outputs": [{
-            "components": [
-                {"internalType": "address", "name": "player", "type": "address"},
-                {"internalType": "uint256", "name": "farcasterFID", "type": "uint256"},
-                {"internalType": "uint256", "name": "completionTime", "type": "uint256"},
-                {"internalType": "uint256", "name": "timestamp", "type": "uint256"}
-            ],
-            "internalType": "struct MathDropGame.LeaderboardEntry[]",
-            "name": "",
-            "type": "tuple[]"
-        }],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [{"internalType": "address", "name": "player", "type": "address"}],
-        "name": "getPlayerStats",
-        "outputs": [
-            {"internalType": "uint256", "name": "bestTime", "type": "uint256"},
-            {"internalType": "uint256", "name": "totalGames", "type": "uint256"},
-            {"internalType": "uint256", "name": "totalRewardsClaimed", "type": "uint256"},
-            {"internalType": "uint256", "name": "lastPlayTimestamp", "type": "uint256"}
-        ],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [{"internalType": "uint256", "name": "farcasterFID", "type": "uint256"}],
-        "name": "getRemainingClaimsForFID",
-        "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [],
-        "name": "getContractBalance",
-        "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [],
-        "name": "getLeaderboardSize",
-        "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [],
-        "name": "getRewardAmount",
-        "outputs": [{"internalType": "uint256", "name": "amount", "type": "uint256"}],
-        "stateMutability": "pure",
-        "type": "function"
-    }
-];
-
-        window.walletConfig = null;
+        let appKitModal;
+        let ethersProvider;
+        let currentAddress = null;
         window.isWalletConnected = false;
-        window.currentAccount = null;
 
-        async function initializeWallet() {
-            try {
-                window.walletConfig = createConfig({
-                    chains: [base],
-                    connectors: [farcasterMiniApp()],
-                    transports: {
-                        [base.id]: http()
-                    }
-                });
-
-                watchAccount(window.walletConfig, {
-                    onChange: (account) => {
-                        console.log('Account changed:', account);
-                        updateWalletUI(account);
-                    }
-                });
-
-                const account = getAccount(window.walletConfig);
-                if (account.isConnected) {
-                    console.log('Wallet already connected:', account.address);
-                    updateWalletUI(account);
-                } else {
-                    try {
-                        console.log('Attempting auto-connect...');
-                        const result = await connect(window.walletConfig, {
-                            connector: farcasterMiniApp()
-                        });
-                        console.log('Auto-connect successful:', result);
-                        updateWalletUI(getAccount(window.walletConfig));
-                    } catch (error) {
-                        console.log('Auto-connect failed, manual connection required');
-                        updateWalletUI(getAccount(window.walletConfig));
-                    }
+        async function initializeAppKit() {
+            const adapter = new EthersAdapter();
+            
+            appKitModal = createAppKit({
+                adapters: [adapter],
+                projectId: PROJECT_ID,
+                networks: [base],
+                metadata: {
+                    name: 'Quick Math',
+                    description: 'Math game on Base',
+                    url: window.location.origin,
+                    icons: ['https://quick-mathquiz.vercel.app/image.png']
+                },
+                features: {
+                    analytics: false
                 }
-            } catch (error) {
-                console.error('Failed to initialize wallet:', error);
-            }
+            });
+
+            appKitModal.subscribeProvider(async (state) => {
+                if (state.isConnected && state.address) {
+                    currentAddress = state.address;
+                    window.isWalletConnected = true;
+                    
+                    if (state.provider) {
+                        ethersProvider = new ethers.BrowserProvider(state.provider);
+                    }
+                    
+                    updateWalletUI(true, state.address);
+                } else {
+                    currentAddress = null;
+                    window.isWalletConnected = false;
+                    ethersProvider = null;
+                    updateWalletUI(false);
+                }
+            });
         }
 
-        function updateWalletUI(account) {
-            if (account && account.isConnected && account.address) {
-                window.isWalletConnected = true;
-                window.currentAccount = account;
-
+        function updateWalletUI(connected, address = null) {
+            if (connected && address) {
                 document.getElementById('walletIndicator').classList.add('connected');
                 document.getElementById('walletStatus').textContent = 'Connected';
                 document.getElementById('walletInfo').style.display = 'block';
                 document.getElementById('walletAddress').textContent = 
-                    `${account.address.slice(0, 6)}...${account.address.slice(-4)}`;
+                    `${address.slice(0, 6)}...${address.slice(-4)}`;
                 
                 document.getElementById('connectBtn').style.display = 'none';
                 document.getElementById('playBtn').disabled = false;
-                
-                console.log('Wallet connected:', account.address);
             } else {
-                window.isWalletConnected = false;
-                window.currentAccount = null;
-                
                 document.getElementById('walletIndicator').classList.remove('connected');
                 document.getElementById('walletStatus').textContent = 'Not Connected';
                 document.getElementById('walletInfo').style.display = 'none';
                 document.getElementById('connectBtn').style.display = 'inline-block';
                 document.getElementById('playBtn').disabled = true;
-                
-                console.log('Wallet disconnected');
             }
         }
 
         window.connectWallet = async function() {
             try {
-                console.log('Manual connect triggered...');
-                const result = await connect(window.walletConfig, {
-                    connector: farcasterMiniApp()
-                });
-                console.log('Connect result:', result);
-                updateWalletUI(getAccount(window.walletConfig));
+                await appKitModal.open();
             } catch (error) {
                 console.error('Failed to connect wallet:', error);
-                showSuccessMessage('❌ Failed to connect wallet: ' + error.message);
+                showSuccessMessage('❌ Failed to connect wallet');
             }
         };
-
-        window.submitScoreOnChain = async function() {
-            console.log('=== SUBMIT SCORE TO BLOCKCHAIN ===');
-            
-            if (!window.isWalletConnected || !window.currentAccount) {
-                showSuccessMessage('🔗 Please connect your wallet first!');
-                return;
-            }
-
-            if (window.totalCorrectAnswers !== 4) {
-                showSuccessMessage('❌ Must complete all 4 questions correctly to submit score!');
-                return;
-            }
-
-            const fid = window.getFarcasterFID();
-
-            try {
-                const playerStats = await readContract(window.walletConfig, {
-                    address: CONTRACT_ADDRESS,
-                    abi: CONTRACT_ABI,
-                    functionName: 'getPlayerStats',
-                    args: [window.currentAccount.address]
-                });
-                
-                const previousBestTime = Number(playerStats[0]);
-                
-                if (previousBestTime > 0 && window.currentGameTime >= previousBestTime) {
-                    showSuccessMessage(`⚠️ Not better than your best time (${window.formatTime(previousBestTime)}). Try again!`);
-                    return;
-                }
-                
-                showSuccessMessage('📝 Submitting score to blockchain...');
-                
-                const hash = await writeContract(window.walletConfig, {
-                    address: CONTRACT_ADDRESS,
-                    abi: CONTRACT_ABI,
-                    functionName: 'submitScore',
-                    args: [
-                        BigInt(window.currentGameTime),
-                        BigInt(fid || 0),
-                        BigInt(window.totalCorrectAnswers)
-                    ]
-                });
-                
-                console.log('Transaction hash:', hash);
-                showSuccessMessage('⏳ Confirming transaction...');
-                
-                const receipt = await waitForTransactionReceipt(window.walletConfig, { hash });
-                console.log('Transaction receipt:', receipt);
-                
-                if (receipt.status === 'success') {
-                    // Fetch player's rank after submitting
-                    try {
-                        const topPlayers = await readContract(window.walletConfig, {
-                            address: CONTRACT_ADDRESS,
-                            abi: CONTRACT_ABI,
-                            functionName: 'getTopPlayers',
-                            args: [BigInt(50)]
-                        });
-                        
-                        const bestTimesMap = new Map();
-                        topPlayers.forEach(entry => {
-                            const address = entry.player.toLowerCase();
-                            if (!bestTimesMap.has(address) || 
-                                Number(entry.completionTime) < Number(bestTimesMap.get(address).completionTime)) {
-                                bestTimesMap.set(address, entry);
-                            }
-                        });
-                        
-                        const uniquePlayers = Array.from(bestTimesMap.values())
-                            .sort((a, b) => Number(a.completionTime) - Number(b.completionTime));
-                        
-                        const playerAddress = window.currentAccount.address.toLowerCase();
-                        const rankIndex = uniquePlayers.findIndex(p => p.player.toLowerCase() === playerAddress);
-                        
-                        if (rankIndex !== -1) {
-                            window.playerRank = rankIndex + 1;
-                            console.log('Player rank:', window.playerRank);
-                        }
-                    } catch (error) {
-                        console.log('Could not fetch rank:', error);
-                    }
-                    
-                    if (previousBestTime === 0) {
-                        showSuccessMessage('🎉 First score submitted to leaderboard!');
-                    } else {
-                        showSuccessMessage(`🎉 New best time! Improved from ${window.formatTime(previousBestTime)}!`);
-                    }
-                    
-                    if (!document.getElementById('leaderboardScreen').classList.contains('hidden')) {
-                        await window.loadOnChainLeaderboard();
-                    }
-                } else {
-                    throw new Error('Transaction failed');
-                }
-                
-            } catch (error) {
-                console.error('Submit error:', error);
-                let errorMessage = 'Failed to submit score. Please try again.';
-                
-                if (error.message.includes('User rejected')) {
-                    errorMessage = '❌ Transaction rejected by user.';
-                } else if (error.message.includes('ScoreNotBetter')) {
-                    errorMessage = '⚠️ Score not better than your previous best!';
-                } else if (error.message.includes('MustCompleteFourQuestions')) {
-                    errorMessage = '❌ Must complete all 4 questions correctly!';
-                }
-                
-                showSuccessMessage(errorMessage);
-            }
-        };
-
-        window.claimRewardOnChain = async function() {
-            console.log('=== CLAIM REWARD FROM BLOCKCHAIN ===');
-
-            if (!window.isWalletConnected || !window.currentAccount) {
-                showSuccessMessage('🔗 Please connect your wallet first!');
-                return;
-            }
-
-            if (window.totalCorrectAnswers !== 4) {
-                showSuccessMessage('❌ Must complete all 4 questions correctly to claim reward!');
-                return;
-            }
-
-            const fid = window.getFarcasterFID();
-            
-            try {
-                showSuccessMessage('⏳ Checking eligibility...');
-
-                const remainingClaims = await readContract(window.walletConfig, {
-                    address: CONTRACT_ADDRESS,
-                    abi: CONTRACT_ABI,
-                    functionName: 'getRemainingClaimsForFID',
-                    args: [BigInt(fid || 0)]
-                });
-
-                console.log('Remaining claims:', remainingClaims);
-
-                if (remainingClaims === 0n) {
-                    showSuccessMessage('❌ You already claimed today! Come back tomorrow.');
-                    return;
-                }
-
-                const rewardAmount = await readContract(window.walletConfig, {
-                    address: CONTRACT_ADDRESS,
-                    abi: CONTRACT_ABI,
-                    functionName: 'getRewardAmount'
-                });
-                
-                console.log('Reward amount:', rewardAmount);
-
-                const contractBalance = await readContract(window.walletConfig, {
-                    address: CONTRACT_ADDRESS,
-                    abi: CONTRACT_ABI,
-                    functionName: 'getContractBalance'
-                });
-                
-                console.log('Contract balance:', contractBalance);
-                console.log('Required amount:', rewardAmount);
-                
-                if (contractBalance < rewardAmount) {
-                    showSuccessMessage('😔 Prize pool empty! Check back later.');
-                    return;
-                }
-
-                showSuccessMessage('💰 Claiming your reward...');
-                
-                const hash = await writeContract(window.walletConfig, {
-                    address: CONTRACT_ADDRESS,
-                    abi: CONTRACT_ABI,
-                    functionName: 'claimReward',
-                    args: [
-                        BigInt(fid || 0),
-                        BigInt(window.totalCorrectAnswers)
-                    ]
-                });
-                
-                console.log('Claim transaction hash:', hash);
-                showSuccessMessage('📝 Transaction submitted! Confirming...');
-                
-                const receipt = await waitForTransactionReceipt(window.walletConfig, { hash });
-                console.log('Claim receipt:', receipt);
-                
-                if (receipt.status === 'success') {
-                    showSuccessMessage('🎉 Success! ETH sent to your wallet on Base!');
-                } else {
-                    throw new Error('Transaction failed');
-                }
-                
-            } catch (error) {
-                console.error('Claim error:', error);
-                let errorMessage = 'Failed to claim reward.';
-                
-                if (error.message.includes('User rejected')) {
-                    errorMessage = '❌ Transaction rejected.';
-                } else if (error.message.includes('InsufficientBalance')) {
-                    errorMessage = '😔 Prize pool is empty! Check back later.';
-                } else if (error.message.includes('ExceededDailyClaims')) {
-                    errorMessage = '❌ Already claimed today!';
-                } else if (error.message.includes('MustCompleteFourQuestions')) {
-                    errorMessage = '❌ Must complete all 4 questions correctly!';
-                }
-                
-                showSuccessMessage(errorMessage);
-            }
-        };
-
-        window.loadOnChainLeaderboard = async function() {
-            try {
-                if (!window.walletConfig) {
-                    console.log('Wallet not initialized yet');
-                    return;
-                }
-
-                const topPlayers = await readContract(window.walletConfig, {
-                    address: CONTRACT_ADDRESS,
-                    abi: CONTRACT_ABI,
-                    functionName: 'getTopPlayers',
-                    args: [BigInt(50)]
-                });
-
-                console.log('Top players from chain:', topPlayers);
-                displayOnChainLeaderboard(topPlayers);
-            } catch (error) {
-                console.error('Failed to load leaderboard:', error);
-                document.getElementById('leaderboardList').innerHTML = `
-                    <div class="empty-leaderboard">
-                        <p style="font-size: 18px; margin-bottom: 5px;">Failed to load leaderboard</p>
-                        <p style="font-size: 14px; color: #ef4444;">${error.message}</p>
-                    </div>
-                `;
-            }
-        };
-
-        // MAKE RANK FETCHING GLOBALLY ACCESSIBLE
-        window.fetchPlayerRank = async function() {
-            if (!window.isWalletConnected || !window.currentAccount || !window.walletConfig) {
-                console.log('Wallet not connected, cannot fetch rank');
-                return null;
-            }
-            
-            try {
-                const topPlayers = await readContract(window.walletConfig, {
-                    address: CONTRACT_ADDRESS,
-                    abi: CONTRACT_ABI,
-                    functionName: 'getTopPlayers',
-                    args: [BigInt(50)]
-                });
-                
-                const bestTimesMap = new Map();
-                topPlayers.forEach(entry => {
-                    const address = entry.player.toLowerCase();
-                    if (!bestTimesMap.has(address) || 
-                        Number(entry.completionTime) < Number(bestTimesMap.get(address).completionTime)) {
-                        bestTimesMap.set(address, entry);
-                    }
-                });
-                
-                const uniquePlayers = Array.from(bestTimesMap.values())
-                    .sort((a, b) => Number(a.completionTime) - Number(b.completionTime));
-                
-                const playerAddress = window.currentAccount.address.toLowerCase();
-                const rankIndex = uniquePlayers.findIndex(p => p.player.toLowerCase() === playerAddress);
-                
-                if (rankIndex !== -1) {
-                    return rankIndex + 1;
-                }
-                return null;
-            } catch (error) {
-                console.log('Could not fetch rank:', error);
-                return null;
-            }
-        };
-
-        async function displayOnChainLeaderboard(players) {
-            const listDiv = document.getElementById('leaderboardList');
-            
-            if (!players || players.length === 0) {
-                listDiv.innerHTML = `
-                    <div class="empty-leaderboard">
-                        <p style="font-size: 18px; margin-bottom: 5px;">No scores yet!</p>
-                        <p style="font-size: 14px;">Be the first to submit a score.</p>
-                    </div>
-                `;
-                return;
-            }
-
-            const bestTimesMap = new Map();
-            
-            players.forEach(entry => {
-                const address = entry.player.toLowerCase();
-                if (!bestTimesMap.has(address) || 
-                    Number(entry.completionTime) < Number(bestTimesMap.get(address).completionTime)) {
-                    bestTimesMap.set(address, entry);
-                }
-            });
-            
-            const uniquePlayers = Array.from(bestTimesMap.values())
-                .sort((a, b) => Number(a.completionTime) - Number(b.completionTime))
-                .slice(0, 50);
-
-            const fids = [...new Set(uniquePlayers.map(p => Number(p.farcasterFID)).filter(fid => fid > 0))];
-            let profiles = {};
-            
-            if (fids.length > 0) {
-                try {
-                    const NEYNAR_API_KEY = '8BF81B8C-C491-4735-8E1C-FC491FF048D4';
-                    const response = await fetch(`https://api.neynar.com/v2/farcaster/user/bulk?fids=${fids.join(',')}`, {
-                        method: 'GET',
-                        headers: {
-                            'Accept': 'application/json',
-                            'api_key': NEYNAR_API_KEY
-                        }
-                    });
-                    
-                    if (response.ok) {
-                        const data = await response.json();
-                        data.users.forEach(user => {
-                            profiles[user.fid] = user;
-                        });
-                    }
-                } catch (error) {
-                    console.log('Failed to fetch profiles:', error);
-                }
-            }
-            
-            listDiv.innerHTML = uniquePlayers.map((entry, idx) => {
-                const rankClass = idx === 0 ? 'rank-1' : idx === 1 ? 'rank-2' : idx === 2 ? 'rank-3' : '';
-                const rankIcon = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`;
-                
-                const fid = Number(entry.farcasterFID);
-                const profile = profiles[fid];
-                
-                let avatarHtml;
-                let displayName;
-                
-                if (profile && profile.pfp_url) {
-                    avatarHtml = `<img src="${profile.pfp_url}" style="width: 40px; height: 40px; border-radius: 8px; margin-right: 10px;">`;
-                    displayName = profile.display_name || profile.username || 'Player';
-                } else {
-                    const address = entry.player;
-                    const letter = address.substring(2, 3).toUpperCase();
-                    avatarHtml = `<div style="width: 40px; height: 40px; border-radius: 8px; background: #374151; display: flex; align-items: center; justify-content: center; margin-right: 10px; color: white; font-weight: bold;">${letter}</div>`;
-                    displayName = fid > 0 ? `FID ${fid}` : 'Anonymous';
-                }
-                
-                return `
-                    <div class="leaderboard-item ${rankClass}">
-                        <div class="leaderboard-left">
-                            <div class="rank-icon">${rankIcon}</div>
-                            ${avatarHtml}
-                            <div class="player-info">
-                                <div class="player-name">${displayName}</div>
-                                <div class="player-time">${window.formatTime(Number(entry.completionTime))}</div>
-                                <div class="player-address">${entry.player.substring(0, 6)}...${entry.player.substring(38)}</div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        function showSuccessMessage(message) {
-            const existingPopup = document.querySelector('.success-popup');
-            if (existingPopup) {
-                existingPopup.remove();
-            }
-
-            const popup = document.createElement('div');
-            popup.className = 'success-popup';
-            popup.textContent = message;
-            document.body.appendChild(popup);
-            
-            setTimeout(() => {
-                popup.remove();
-            }, 4000);
-        }
 
         window.startGame = async function() {
-            if (!window.isWalletConnected) {
-                alert('Please connect your wallet first!');
+            if (!window.isWalletConnected || !ethersProvider) {
+                showSuccessMessage('🔗 Please connect your wallet first!');
                 return;
             }
 
             try {
                 const playBtn = document.getElementById('playBtn');
                 playBtn.disabled = true;
-                playBtn.innerHTML = 'Confirming Transaction... <div class="loading-spinner" style="display: inline-block; width: 16px; height: 16px;"></div>';
+                playBtn.innerHTML = 'Starting Game... <div class="loading-spinner" style="display: inline-block; width: 16px; height: 16px;"></div>';
 
-                const fid = window.getFarcasterFID();
-
-                const hash = await writeContract(window.walletConfig, {
-                    address: CONTRACT_ADDRESS,
-                    abi: CONTRACT_ABI,
-                    functionName: 'startGame',
-                    args: [BigInt(fid || 0)]
-                });
-
-                console.log('Start game transaction hash:', hash);
+                const signer = await ethersProvider.getSigner();
+                const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
                 
-                const receipt = await waitForTransactionReceipt(window.walletConfig, { hash });
-                console.log('Transaction confirmed:', receipt);
-
-                if (receipt.status !== 'success') {
-                    throw new Error('Transaction failed');
-                }
+                const tx = await contract.startGame(0);
+                await tx.wait();
 
                 window.gameState = 'playing';
                 window.currentQuestion = 0;
@@ -1327,15 +779,151 @@ const CONTRACT_ABI = [
                 playBtn.disabled = false;
                 playBtn.textContent = 'Start Game';
                 
-                let errorMessage = '❌ Failed to start game. Please try again.';
-                if (error.message.includes('User rejected')) {
-                    errorMessage = '❌ Transaction rejected. Please try again.';
-                }
-                showSuccessMessage(errorMessage);
+                showSuccessMessage('❌ Failed to start game');
             }
         };
 
-        initializeWallet();
+        window.submitScoreOnChain = async function() {
+            if (!window.isWalletConnected || !ethersProvider) {
+                showSuccessMessage('🔗 Please connect your wallet first!');
+                return;
+            }
+
+            if (window.totalCorrectAnswers !== 4) {
+                showSuccessMessage('❌ Must complete all 4 questions correctly!');
+                return;
+            }
+
+            try {
+                showSuccessMessage('📝 Submitting score...');
+                
+                const signer = await ethersProvider.getSigner();
+                const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+                
+                const tx = await contract.submitScore(
+                    window.currentGameTime,
+                    0,
+                    window.totalCorrectAnswers
+                );
+                
+                await tx.wait();
+                showSuccessMessage('🎉 Score submitted successfully!');
+                
+                if (!document.getElementById('leaderboardScreen').classList.contains('hidden')) {
+                    await window.loadOnChainLeaderboard();
+                }
+                
+            } catch (error) {
+                console.error('Submit error:', error);
+                showSuccessMessage('❌ Failed to submit score');
+            }
+        };
+
+        window.claimRewardOnChain = async function() {
+            if (!window.isWalletConnected || !ethersProvider) {
+                showSuccessMessage('🔗 Please connect your wallet first!');
+                return;
+            }
+
+            if (window.totalCorrectAnswers !== 4) {
+                showSuccessMessage('❌ Must complete all 4 questions correctly!');
+                return;
+            }
+
+            try {
+                showSuccessMessage('💰 Claiming reward...');
+                
+                const signer = await ethersProvider.getSigner();
+                const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+                
+                const tx = await contract.claimReward(0, window.totalCorrectAnswers);
+                await tx.wait();
+                
+                showSuccessMessage('🎉 Reward claimed successfully!');
+                
+            } catch (error) {
+                console.error('Claim error:', error);
+                showSuccessMessage('❌ Failed to claim reward');
+            }
+        };
+
+        window.loadOnChainLeaderboard = async function() {
+            try {
+                if (!ethersProvider) {
+                    return;
+                }
+
+                const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, ethersProvider);
+                const topPlayers = await contract.getTopPlayers(50);
+                
+                displayOnChainLeaderboard(topPlayers);
+            } catch (error) {
+                console.error('Failed to load leaderboard:', error);
+            }
+        };
+
+        function displayOnChainLeaderboard(players) {
+            const listDiv = document.getElementById('leaderboardList');
+            
+            if (!players || players.length === 0) {
+                listDiv.innerHTML = `
+                    <div class="empty-leaderboard">
+                        <p style="font-size: 18px;">No scores yet!</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const bestTimesMap = new Map();
+            
+            players.forEach(entry => {
+                const address = entry.player.toLowerCase();
+                if (!bestTimesMap.has(address) || 
+                    Number(entry.completionTime) < Number(bestTimesMap.get(address).completionTime)) {
+                    bestTimesMap.set(address, entry);
+                }
+            });
+            
+            const uniquePlayers = Array.from(bestTimesMap.values())
+                .sort((a, b) => Number(a.completionTime) - Number(b.completionTime))
+                .slice(0, 50);
+            
+            listDiv.innerHTML = uniquePlayers.map((entry, idx) => {
+                const rankClass = idx === 0 ? 'rank-1' : idx === 1 ? 'rank-2' : idx === 2 ? 'rank-3' : '';
+                const rankIcon = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`;
+                
+                return `
+                    <div class="leaderboard-item ${rankClass}">
+                        <div class="leaderboard-left">
+                            <div class="rank-icon">${rankIcon}</div>
+                            <div class="player-info">
+                                <div class="player-name">Player ${idx + 1}</div>
+                                <div class="player-time">${window.formatTime(Number(entry.completionTime))}</div>
+                                <div class="player-address">${entry.player.substring(0, 6)}...${entry.player.substring(38)}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function showSuccessMessage(message) {
+            const existingPopup = document.querySelector('.success-popup');
+            if (existingPopup) {
+                existingPopup.remove();
+            }
+
+            const popup = document.createElement('div');
+            popup.className = 'success-popup';
+            popup.textContent = message;
+            document.body.appendChild(popup);
+            
+            setTimeout(() => {
+                popup.remove();
+            }, 4000);
+        }
+
+        initializeAppKit();
     </script>
 
     <script>
@@ -1349,7 +937,6 @@ const CONTRACT_ABI = [
         window.timerInterval = null;
         window.fallTimeout = null;
         window.totalCorrectAnswers = 0;
-        window.playerRank = null;
 
         window.generateQuestion = function() {
             const a = Math.floor(Math.random() * 10) + 1;
@@ -1414,10 +1001,6 @@ const CONTRACT_ABI = [
             clearTimeout(window.fallTimeout);
             
             if (selected === window.correctAnswer) {
-                const correctSound = document.getElementById('correctSound');
-                correctSound.currentTime = 0;
-                correctSound.play().catch(e => console.log('Sound play failed:', e));
-                
                 window.correctAnswers[window.currentQuestion] = true;
                 window.totalCorrectAnswers++;
                 window.updateProgressBoxes();
@@ -1437,10 +1020,6 @@ const CONTRACT_ABI = [
                     }, 800);
                 }
             } else {
-                const wrongSound = document.getElementById('wrongSound');
-                wrongSound.currentTime = 0;
-                wrongSound.play().catch(e => console.log('Sound play failed:', e));
-                
                 window.showFeedback('❌ Wrong!', 'wrong');
                 clearInterval(window.timerInterval);
                 setTimeout(() => {
@@ -1450,10 +1029,6 @@ const CONTRACT_ABI = [
         };
 
         window.handleMiss = function() {
-            const wrongSound = document.getElementById('wrongSound');
-            wrongSound.currentTime = 0;
-            wrongSound.play().catch(e => console.log('Sound play failed:', e));
-            
             window.showFeedback('⏱️ Too slow!', 'wrong');
             clearInterval(window.timerInterval);
             setTimeout(() => {
@@ -1493,11 +1068,7 @@ const CONTRACT_ABI = [
             return `${seconds}.${milliseconds.toString().padStart(2, '0')}s`;
         };
 
-        window.showWinScreen = async function() {
-            const winSound = document.getElementById('winSound');
-            winSound.currentTime = 0;
-            winSound.play().catch(e => console.log('Sound play failed:', e));
-            
+        window.showWinScreen = function() {
             document.getElementById('gameScreen').classList.add('hidden');
             document.getElementById('resultScreen').classList.remove('hidden');
             document.getElementById('timerDisplay').classList.add('hidden');
@@ -1513,12 +1084,6 @@ const CONTRACT_ABI = [
             if (submitBtn) submitBtn.style.display = 'block';
             if (claimBtn) claimBtn.style.display = 'block';
             if (shareBtn) shareBtn.style.display = 'inline-block';
-            
-            // AUTO-FETCH PLAYER'S RANK
-            if (window.fetchPlayerRank) {
-                window.playerRank = await window.fetchPlayerRank();
-                console.log('Player rank fetched on win screen:', window.playerRank);
-            }
         };
 
         window.showGameOver = function() {
@@ -1541,7 +1106,6 @@ const CONTRACT_ABI = [
 
         window.playAgain = function() {
             window.gameState = 'ready';
-            window.playerRank = null;
             document.getElementById('resultScreen').classList.add('hidden');
             document.getElementById('startScreen').classList.remove('hidden');
             document.getElementById('resultTime').classList.remove('hidden');
@@ -1549,7 +1113,6 @@ const CONTRACT_ABI = [
             const playBtn = document.getElementById('playBtn');
             playBtn.disabled = false;
             playBtn.textContent = 'Start Game';
-            playBtn.innerHTML = 'Start Game';
             
             const boxes = document.querySelectorAll('.progress-box');
             boxes.forEach((box, idx) => {
@@ -1584,39 +1147,15 @@ const CONTRACT_ABI = [
         window.hideLeaderboard = function() {
             document.getElementById('leaderboardScreen').classList.add('hidden');
             document.getElementById('startScreen').classList.remove('hidden');
-            window.gameState = 'ready';
-            
-            const playBtn = document.getElementById('playBtn');
-            playBtn.disabled = false;
-            playBtn.textContent = 'Start Game';
-            playBtn.innerHTML = 'Start Game';
         };
 
-window.shareGame = function() {
-    let shareText = `🔥 Just completed Quick Math in ${window.formatTime(window.currentGameTime)}!\n\n`;
-    
-    // Add rank if available
-    if (window.playerRank !== null) {
-        if (window.playerRank === 1) {
-            shareText += '🥇 Rank #1\n';
-        } else if (window.playerRank === 2) {
-            shareText += '🥈 Rank #2\n';
-        } else if (window.playerRank === 3) {
-            shareText += '🥉 Rank #3\n';
-        } else {
-            shareText += `🏆 Rank #${window.playerRank}\n`;
-        }
-    }
-    
-    shareText += '📋 4/4 correct - Score submitted onchain.\n';
-    shareText += '➤ Claimed my reward.\n';
-    shareText += '🥷🏻 Beat my time if you can!';
-    
-    const encodedText = encodeURIComponent(shareText);
-    const shareUrl = encodeURIComponent(window.location.href);
-    const castUrl = `https://farcaster.xyz/~/compose?text=${encodedText}&embeds[]=${shareUrl}`;
-    window.open(castUrl, '_blank');
-};
+        window.shareGame = function() {
+            const shareText = `🔥 Just completed Quick Math in ${window.formatTime(window.currentGameTime)}!\n📋 4/4 correct - Score submitted onchain.\n🥷🏻 Beat my time if you can!`;
+            const encodedText = encodeURIComponent(shareText);
+            const shareUrl = encodeURIComponent(window.location.href);
+            const twitterUrl = `https://twitter.com/intent/tweet?text=${encodedText}&url=${shareUrl}`;
+            window.open(twitterUrl, '_blank');
+        };
     </script>
 </body>
 </html>
