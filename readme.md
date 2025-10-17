@@ -1,209 +1,208 @@
-// ============================================
-// QUICK MATH NOTIFICATION TEMPLATES
-// ============================================
+# Quick Math ⚡
 
-// Copy and replace the title/body variables in your script with any of these
+A fast-paced blockchain-based math game built as a Farcaster Mini App. Answer 4 math questions correctly as quickly as possible, submit your score on-chain, and compete for the top spot on the leaderboard!
 
-// ============================================
-// 💰 PRIZE POOL ANNOUNCEMENTS
-// ============================================
+## 🎮 Game Overview
 
-// Prize Pool Added - 10 USDC
-const prizePool10 = {
-  title: "💰 10 USDC Added to Prize Pool!",
-  body: "New prizes up for grabs! Play now and climb the leaderboard to win."
-};
+Quick Math challenges players to solve simple arithmetic problems under time pressure. Players must catch falling answers before they disappear, competing for the fastest completion time. All scores are stored permanently on the Base blockchain.
 
-// Prize Pool Added - 25 USDC
-const prizePool25 = {
-  title: "🎉 25 USDC Prize Pool Live!",
-  body: "Big rewards await! Solve math problems faster than everyone else."
-};
+### Key Features
 
-// Prize Pool Added - 50 USDC
-const prizePool50 = {
-  title: "🚀 50 USDC Prize Pool Unlocked!",
-  body: "Massive rewards! Race to the top of the leaderboard now."
-};
+- **⏱️ Time-Based Competition**: Race against the clock to solve 4 math questions
+- **🎯 Falling Answer Mechanic**: Catch the correct answer before it falls off screen
+- **🔗 Blockchain Integration**: Scores and rewards stored on Base network
+- **🏆 Global Leaderboard**: Top 50 fastest players displayed with real-time updates
+- **💰 Daily Rewards**: Claim ETH rewards once per day upon completion
+- **👤 Farcaster Integration**: Display player profiles with avatars and usernames
+- **📱 Social Sharing**: Share achievements directly to Farcaster
 
-// Prize Pool Added - 100 USDC
-const prizePool100 = {
-  title: "💎 100 USDC Prize Pool!",
-  body: "Huge opportunity! Top players win big. Start solving now!"
-};
+## 🛠️ Tech Stack
 
-// Generic Prize Pool
-const prizepoolGeneric = {
-  title: "💰 New Prize Pool Added!",
-  body: "Win real money! Compete in speed math and claim your share."
-};
+### Frontend
+- **HTML5/CSS3/JavaScript**: Core game interface
+- **Farcaster Mini App SDK**: Frame integration and user context
+- **Wagmi Core**: Web3 wallet connection and blockchain interactions
 
-// ============================================
-// 📅 DAILY REMINDERS
-// ============================================
+### Blockchain
+- **Network**: Base (Ethereum L2)
+- **Smart Contract**: Custom MathDropGame contract
+- **Wallet**: Farcaster Mini App Connector
 
-// Morning Reminder
-const dailyMorning = {
-  title: "☀️ Start Your Day with Math!",
-  body: "Good morning! Test your speed. Solve 4 problems in record time."
-};
+### APIs
+- **Neynar API**: Fetch Farcaster user profiles and metadata
 
-// Afternoon Reminder
-const dailyAfternoon = {
-  title: "⚡ Quick Math Break!",
-  body: "Take 2 minutes. Challenge yourself and improve your leaderboard rank."
-};
+## 📋 Prerequisites
 
-// Evening Reminder
-const dailyEvening = {
-  title: "🌙 Evening Math Challenge!",
-  body: "End your day on top! Beat today's fastest times on the leaderboard."
-};
+- Farcaster account
+- Compatible wallet for Base network
+- Modern web browser with JavaScript enabled
 
-// Generic Daily
-const dailyGeneric = {
-  title: "🧮 Daily Math Challenge!",
-  body: "Ready to play? 4 problems, one timer, infinite competition."
-};
+## 🚀 Getting Started
 
-// Streak Reminder
-const dailyStreak = {
-  title: "🔥 Keep Your Streak Alive!",
-  body: "Don't break your streak! Play Quick Math now and stay on top."
-};
+### Installation
 
-// ============================================
-// 🏆 LEADERBOARD UPDATES
-// ============================================
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/quick-math.git
+cd quick-math
+```
 
-// New #1 Player
-const leaderboardNewTop = {
-  title: "👑 New Leader Crowned!",
-  body: "Someone just beat the fastest time! Can you take back the #1 spot?"
-};
+2. Deploy to your web server or hosting platform:
+```bash
+# Example with Vercel
+vercel deploy
+```
 
-// You Dropped in Rankings
-const leaderboardDropped = {
-  title: "📉 You've Dropped in Rank!",
-  body: "Someone just passed you! Reclaim your position on the leaderboard."
-};
+3. Update the following in `index.html`:
+   - `CONTRACT_ADDRESS`: Your deployed smart contract address
+   - `NEYNAR_API_KEY`: Your Neynar API key
 
-// Close Competition
-const leaderboardClose = {
-  title: "🔥 Neck and Neck Competition!",
-  body: "You're so close to the top! One more play could put you in #1."
-};
+### Smart Contract Setup
 
-// Weekly Reset
-const leaderboardWeekly = {
-  title: "🔄 Weekly Leaderboard Reset!",
-  body: "Fresh start! Everyone's back to zero. Be the first to set the pace."
-};
+The game requires a deployed smart contract on Base network with the following functions:
 
-// Top 10 Position
-const leaderboardTop10 = {
-  title: "⭐ You're in Top 10!",
-  body: "You're crushing it! Keep playing to secure your spot and win prizes."
-};
+```solidity
+- startGame(uint256 farcasterFID)
+- submitScore(uint256 completionTime, uint256 farcasterFID, uint256 questionsCorrect)
+- claimReward(uint256 farcasterFID, uint256 questionsCorrect)
+- getTopPlayers(uint256 count)
+- getPlayerStats(address player)
+- getRemainingClaimsForFID(uint256 farcasterFID)
+```
 
-// Challenge the Leader
-const leaderboardChallenge = {
-  title: "⚔️ Challenge the Champion!",
-  body: "Think you're faster? Beat the current #1 and take the crown."
-};
+## 🎯 How to Play
 
-// ============================================
-// ⚡ SPEED & COMPETITION FOCUSED
-// ============================================
+1. **Connect Wallet**: Click "Connect Wallet" to authenticate with your Base wallet
+2. **Start Game**: Click "Start Game" and confirm the blockchain transaction
+3. **Answer Questions**: Click the correct falling answer before it disappears
+4. **Complete All 4**: Answer all 4 questions correctly to win
+5. **Submit Score**: Save your completion time to the on-chain leaderboard
+6. **Claim Reward**: Collect your daily ETH reward
 
-// Speed Challenge
-const speedChallenge = {
-  title: "⚡ Speed = Victory!",
-  body: "Every millisecond counts. Solve 4 problems faster than the rest."
-};
+## 🏆 Leaderboard System
 
-// Beat Your Record
-const speedPersonal = {
-  title: "🎯 Beat Your Best Time!",
-  body: "Can you go faster? Challenge yourself and set a new personal record."
-};
+- Displays top 50 fastest completion times
+- Only shows each player's best time
+- Real-time updates when new scores are submitted
+- Shows player avatars, names, and wallet addresses
+- Ranks with medals: 🥇 🥈 🥉
 
-// Sub-Minute Challenge
-const speedSubMinute = {
-  title: "⏱️ Can You Solve in Under 60s?",
-  body: "Elite players do it in under a minute. Are you one of them?"
-};
+## 💎 Reward System
 
-// Lightning Round
-const speedLightning = {
-  title: "⚡ Lightning Round Active!",
-  body: "Speed bonus active! Faster times = better rewards. Play now!"
-};
+- Complete all 4 questions correctly to be eligible
+- Claim ETH reward once per 24 hours per Farcaster ID
+- Rewards sent directly to connected wallet
+- Contract balance check ensures prize pool availability
 
-// Race Against Time
-const speedRace = {
-  title: "🏁 Race Against the Clock!",
-  body: "4 math problems. 1 timer. How fast can you go?"
-};
+## 🔧 Configuration
 
-// ============================================
-// 🎮 ENGAGEMENT & COMEBACK
-// ============================================
+### Contract Address
+```javascript
+const CONTRACT_ADDRESS = '0xadd4fb9ef92b6de07c970d9a1a2ee9f9f175de54';
+```
 
-// Come Back
-const engagementComeBack = {
-  title: "🎮 We Miss You!",
-  body: "Haven't played in a while? Jump back in and reclaim your rank!"
-};
+### Neynar API
+```javascript
+const NEYNAR_API_KEY = 'YOUR_API_KEY_HERE';
+```
 
-// Weekend Challenge
-const engagementWeekend = {
-  title: "🎉 Weekend Math Marathon!",
-  body: "Weekend = Competition time! Play now and dominate the leaderboard."
-};
+### Network Configuration
+```javascript
+chains: [base]
+transports: {
+    [base.id]: http()
+}
+```
 
-// New Players Joining
-const engagementNew = {
-  title: "🌟 New Challengers Arrived!",
-  body: "Fresh competition just joined. Show them who's the math master."
-};
+## 📱 Farcaster Frame Configuration
 
-// Almost There
-const engagementAlmost = {
-  title: "🎯 So Close to the Top!",
-  body: "You're almost there! One more game could change everything."
-};
+The game includes Farcaster Mini App metadata:
 
-// Limited Time Event
-const engagementEvent = {
-  title: "⏰ Limited Time Event!",
-  body: "Special prizes available now! Play before time runs out."
-};
+```json
+{
+    "version": "1",
+    "imageUrl": "https://quick-mathquiz.vercel.app/image.png",
+    "button": {
+        "title": "Play Quick Math & Earn!",
+        "action": {
+            "type": "launch_frame",
+            "name": "Quick Math",
+            "url": "https://quick-mathquiz.vercel.app",
+            "splashImageUrl": "https://quick-mathquiz.vercel.app/splash.png",
+            "splashBackgroundColor": "#cce5ff"
+        }
+    }
+}
+```
 
-// ============================================
-// 🎁 SPECIAL EVENTS
-// ============================================
+## 🎨 Game Mechanics
 
-// New Feature
-const specialFeature = {
-  title: "✨ New Feature Unlocked!",
-  body: "Something new just dropped! Check out the latest update in Quick Math."
-};
+### Question Types
+- Addition: `a + b`
+- Subtraction: `a - b` (always positive results)
+- Multiplication: `a × b`
 
-// Tournament Announcement
-const specialTournament = {
-  title: "🏆 Tournament Starting Soon!",
-  body: "Big tournament alert! Register now and compete for exclusive prizes."
-};
+### Answer Generation
+- One correct answer
+- Three incorrect but plausible distractors
+- Randomized positions for each question
+- 6-second falling animation
 
-// Milestone Celebration
-const specialMilestone = {
-  title: "🎊 10,000 Players Milestone!",
-  body: "We hit 10K players! Celebrate with us and win special rewards."
-};
+### Scoring
+- Time starts on first question load
+- Stops when 4th question answered correctly
+- Time displayed in seconds with 2 decimal places
+- Only best times saved to leaderboard
 
-// Community Challenge
-const specialCommunity = {
-  title: "🌍 Community Challenge Live!",
-  body: "Team up! Complete 10,000 problems together and unlock rewards."
-};
+## 🔐 Security Features
+
+- Transaction confirmations required for all blockchain actions
+- User rejection handling for wallet transactions
+- Score validation on smart contract
+- Daily claim limits per Farcaster ID
+- Balance checks before reward distribution
+
+## 🎵 Audio Assets
+
+Required audio files in `/sounds/` directory:
+- `correct.mp3`: Played on correct answer
+- `wrong.mp3`: Played on incorrect answer
+- `win.mp3`: Played on game completion
+
+## 📊 Player Statistics
+
+The contract tracks:
+- Best completion time
+- Total games played
+- Total rewards claimed
+- Last play timestamp
+
+## 🐛 Known Issues & Limitations
+
+- Requires Base network connectivity
+- Audio may not autoplay on some browsers
+- Leaderboard limited to top 50 players
+- One reward claim per 24 hours per FID
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## 📄 License
+
+This project is licensed under the MIT License.
+
+## 🔗 Links
+
+- [Live Game](https://quick-mathquiz.vercel.app)
+- [Base Network](https://base.org)
+- [Farcaster](https://farcaster.xyz)
+- [Neynar API](https://neynar.com)
+
+## 💬 Support
+
+For questions or issues, please open an issue on GitHub or reach out on Farcaster.
+
+---
+
+Built with ❤️ for the Farcaster community
