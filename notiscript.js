@@ -8,7 +8,8 @@ const NOTIFICATION_URL = "https://api.farcaster.xyz/v1/frame-notifications";
 const appUrl = "https://quick-mathquiz.vercel.app/";
 
 // Choose your notification:
-const title = "⏱️ Night Bonus Pool Added!";
+const title = "⏱️ Math is not easy?";
+// const title = "⏱️ New Prize Pool Added!";
 const body = "Wohhoo! you are eligble to solve math problems & earn rewards.";
 const BATCH_SIZE = 40;
 const DELAY_BETWEEN_BATCHES = 3000;
