@@ -1,4 +1,4 @@
-<!-- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -605,7 +605,7 @@
         </div>
 
         <div class="leaderboard-screen hidden" id="leaderboardScreen">
-            <h2 class="leaderboard-title">⏱️ Top 30 Fastest Players</h2>
+            <h2 class="leaderboard-title">⏱️ Top 50 Fastest Players</h2>
             <div class="leaderboard-list" id="leaderboardList">
                 <div class="empty-leaderboard">
                     <p style="font-size: 18px; margin-bottom: 5px;">Loading leaderboard...</p>
@@ -713,12 +713,18 @@
         import { base } from 'https://esm.sh/@wagmi/core/chains';
         import { farcasterMiniApp } from 'https://esm.sh/@farcaster/miniapp-wagmi-connector';
 
-// REPLACE WITH YOUR NEW DEPLOYED CONTRACT ADDRESS
-const CONTRACT_ADDRESS = '0x41c4c1b5baf55ad25933fa52f41cf39dfe41174f';
+const CONTRACT_ADDRESS = '0xadd4fb9ef92b6de07c970d9a1a2ee9f9f175de54';
 
 const CONTRACT_ABI = [
-
-
+    {
+        "inputs": [
+            {"internalType": "uint256", "name": "farcasterFID", "type": "uint256"}
+        ],
+        "name": "startGame",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
     {
         "inputs": [
             {"internalType": "uint256", "name": "completionTime", "type": "uint256"},
@@ -893,8 +899,7 @@ const CONTRACT_ABI = [
                 return;
             }
 
-            // Check if player got 4/4 correct
-            if (totalCorrectAnswers !== 4) {
+            if (window.totalCorrectAnswers !== 4) {
                 showSuccessMessage('❌ Must complete all 4 questions correctly to submit score!');
                 return;
             }
@@ -902,7 +907,6 @@ const CONTRACT_ABI = [
             const fid = window.getFarcasterFID();
 
             try {
-                // Check if this score is better than previous
                 const playerStats = await readContract(window.walletConfig, {
                     address: CONTRACT_ADDRESS,
                     abi: CONTRACT_ABI,
@@ -910,10 +914,10 @@ const CONTRACT_ABI = [
                     args: [window.currentAccount.address]
                 });
                 
-                const previousBestTime = Number(playerStats[0]); // bestTime
+                const previousBestTime = Number(playerStats[0]);
                 
-                if (previousBestTime > 0 && currentGameTime >= previousBestTime) {
-                    showSuccessMessage(`⚠️ Not better than your best time (${formatTime(previousBestTime)}). Try again!`);
+                if (previousBestTime > 0 && window.currentGameTime >= previousBestTime) {
+                    showSuccessMessage(`⚠️ Not better than your best time (${window.formatTime(previousBestTime)}). Try again!`);
                     return;
                 }
                 
@@ -924,9 +928,9 @@ const CONTRACT_ABI = [
                     abi: CONTRACT_ABI,
                     functionName: 'submitScore',
                     args: [
-                        BigInt(currentGameTime),
+                        BigInt(window.currentGameTime),
                         BigInt(fid || 0),
-                        BigInt(totalCorrectAnswers) // Pass total correct answers
+                        BigInt(window.totalCorrectAnswers)
                     ]
                 });
                 
@@ -937,14 +941,46 @@ const CONTRACT_ABI = [
                 console.log('Transaction receipt:', receipt);
                 
                 if (receipt.status === 'success') {
+                    // Fetch player's rank after submitting
+                    try {
+                        const topPlayers = await readContract(window.walletConfig, {
+                            address: CONTRACT_ADDRESS,
+                            abi: CONTRACT_ABI,
+                            functionName: 'getTopPlayers',
+                            args: [BigInt(50)]
+                        });
+                        
+                        const bestTimesMap = new Map();
+                        topPlayers.forEach(entry => {
+                            const address = entry.player.toLowerCase();
+                            if (!bestTimesMap.has(address) || 
+                                Number(entry.completionTime) < Number(bestTimesMap.get(address).completionTime)) {
+                                bestTimesMap.set(address, entry);
+                            }
+                        });
+                        
+                        const uniquePlayers = Array.from(bestTimesMap.values())
+                            .sort((a, b) => Number(a.completionTime) - Number(b.completionTime));
+                        
+                        const playerAddress = window.currentAccount.address.toLowerCase();
+                        const rankIndex = uniquePlayers.findIndex(p => p.player.toLowerCase() === playerAddress);
+                        
+                        if (rankIndex !== -1) {
+                            window.playerRank = rankIndex + 1;
+                            console.log('Player rank:', window.playerRank);
+                        }
+                    } catch (error) {
+                        console.log('Could not fetch rank:', error);
+                    }
+                    
                     if (previousBestTime === 0) {
                         showSuccessMessage('🎉 First score submitted to leaderboard!');
                     } else {
-                        showSuccessMessage(`🎉 New best time! Improved from ${formatTime(previousBestTime)}!`);
+                        showSuccessMessage(`🎉 New best time! Improved from ${window.formatTime(previousBestTime)}!`);
                     }
                     
                     if (!document.getElementById('leaderboardScreen').classList.contains('hidden')) {
-                        await loadOnChainLeaderboard();
+                        await window.loadOnChainLeaderboard();
                     }
                 } else {
                     throw new Error('Transaction failed');
@@ -966,107 +1002,101 @@ const CONTRACT_ABI = [
             }
         };
 
-window.claimRewardOnChain = async function() {
-    console.log('=== CLAIM REWARD FROM BLOCKCHAIN ===');
+        window.claimRewardOnChain = async function() {
+            console.log('=== CLAIM REWARD FROM BLOCKCHAIN ===');
 
-    if (!window.isWalletConnected || !window.currentAccount) {
-        showSuccessMessage('🔗 Please connect your wallet first!');
-        return;
-    }
+            if (!window.isWalletConnected || !window.currentAccount) {
+                showSuccessMessage('🔗 Please connect your wallet first!');
+                return;
+            }
 
-    // Check if player got 4/4 correct
-    if (totalCorrectAnswers !== 4) {
-        showSuccessMessage('❌ Must complete all 4 questions correctly to claim reward!');
-        return;
-    }
+            if (window.totalCorrectAnswers !== 4) {
+                showSuccessMessage('❌ Must complete all 4 questions correctly to claim reward!');
+                return;
+            }
 
-    const fid = window.getFarcasterFID();
-    
-    try {
-        showSuccessMessage('⏳ Checking eligibility...');
+            const fid = window.getFarcasterFID();
+            
+            try {
+                showSuccessMessage('⏳ Checking eligibility...');
 
-        // CHECK 1: Remaining claims
-        const remainingClaims = await readContract(window.walletConfig, {
-            address: CONTRACT_ADDRESS,
-            abi: CONTRACT_ABI,
-            functionName: 'getRemainingClaimsForFID',
-            args: [BigInt(fid || 0)]
-        });
+                const remainingClaims = await readContract(window.walletConfig, {
+                    address: CONTRACT_ADDRESS,
+                    abi: CONTRACT_ABI,
+                    functionName: 'getRemainingClaimsForFID',
+                    args: [BigInt(fid || 0)]
+                });
 
-        console.log('Remaining claims:', remainingClaims);
+                console.log('Remaining claims:', remainingClaims);
 
-        if (remainingClaims === 0n) {
-            showSuccessMessage('❌ You already claimed today! Come back tomorrow.');
-            return;
-        }
+                if (remainingClaims === 0n) {
+                    showSuccessMessage('❌ You already claimed today! Come back tomorrow.');
+                    return;
+                }
 
-        // CHECK 2: Get the actual reward amount from contract
-        const rewardAmount = await readContract(window.walletConfig, {
-            address: CONTRACT_ADDRESS,
-            abi: CONTRACT_ABI,
-            functionName: 'getRewardAmount'
-        });
-        
-        console.log('Reward amount:', rewardAmount);
+                const rewardAmount = await readContract(window.walletConfig, {
+                    address: CONTRACT_ADDRESS,
+                    abi: CONTRACT_ABI,
+                    functionName: 'getRewardAmount'
+                });
+                
+                console.log('Reward amount:', rewardAmount);
 
-        // CHECK 3: Contract balance - BEFORE sending transaction
-        const contractBalance = await readContract(window.walletConfig, {
-            address: CONTRACT_ADDRESS,
-            abi: CONTRACT_ABI,
-            functionName: 'getContractBalance'
-        });
-        
-        console.log('Contract balance:', contractBalance);
-        console.log('Required amount:', rewardAmount);
-        
-        // CRITICAL: Check if contract has enough to pay the reward
-        if (contractBalance < rewardAmount) {
-            showSuccessMessage('😔 Prize pool empty! Check back later.');
-            return;
-        }
+                const contractBalance = await readContract(window.walletConfig, {
+                    address: CONTRACT_ADDRESS,
+                    abi: CONTRACT_ABI,
+                    functionName: 'getContractBalance'
+                });
+                
+                console.log('Contract balance:', contractBalance);
+                console.log('Required amount:', rewardAmount);
+                
+                if (contractBalance < rewardAmount) {
+                    showSuccessMessage('😔 Prize pool empty! Check back later.');
+                    return;
+                }
 
-        // NOW send the transaction only if all checks pass
-        showSuccessMessage('💰 Claiming your reward...');
-        
-        const hash = await writeContract(window.walletConfig, {
-            address: CONTRACT_ADDRESS,
-            abi: CONTRACT_ABI,
-            functionName: 'claimReward',
-            args: [
-                BigInt(fid || 0),
-                BigInt(totalCorrectAnswers)
-            ]
-        });
-        
-        console.log('Claim transaction hash:', hash);
-        showSuccessMessage('📝 Transaction submitted! Confirming...');
-        
-        const receipt = await waitForTransactionReceipt(window.walletConfig, { hash });
-        console.log('Claim receipt:', receipt);
-        
-        if (receipt.status === 'success') {
-            showSuccessMessage('🎉 Success! ETH sent to your wallet on Base!');
-        } else {
-            throw new Error('Transaction failed');
-        }
-        
-    } catch (error) {
-        console.error('Claim error:', error);
-        let errorMessage = 'Failed to claim reward.';
-        
-        if (error.message.includes('User rejected')) {
-            errorMessage = '❌ Transaction rejected.';
-        } else if (error.message.includes('InsufficientBalance')) {
-            errorMessage = '😔 Prize pool is empty! Check back later.';
-        } else if (error.message.includes('ExceededDailyClaims')) {
-            errorMessage = '❌ Already claimed today!';
-        } else if (error.message.includes('MustCompleteFourQuestions')) {
-            errorMessage = '❌ Must complete all 4 questions correctly!';
-        }
-        
-        showSuccessMessage(errorMessage);
-    }
-};
+                showSuccessMessage('💰 Claiming your reward...');
+                
+                const hash = await writeContract(window.walletConfig, {
+                    address: CONTRACT_ADDRESS,
+                    abi: CONTRACT_ABI,
+                    functionName: 'claimReward',
+                    args: [
+                        BigInt(fid || 0),
+                        BigInt(window.totalCorrectAnswers)
+                    ]
+                });
+                
+                console.log('Claim transaction hash:', hash);
+                showSuccessMessage('📝 Transaction submitted! Confirming...');
+                
+                const receipt = await waitForTransactionReceipt(window.walletConfig, { hash });
+                console.log('Claim receipt:', receipt);
+                
+                if (receipt.status === 'success') {
+                    showSuccessMessage('🎉 Success! ETH sent to your wallet on Base!');
+                } else {
+                    throw new Error('Transaction failed');
+                }
+                
+            } catch (error) {
+                console.error('Claim error:', error);
+                let errorMessage = 'Failed to claim reward.';
+                
+                if (error.message.includes('User rejected')) {
+                    errorMessage = '❌ Transaction rejected.';
+                } else if (error.message.includes('InsufficientBalance')) {
+                    errorMessage = '😔 Prize pool is empty! Check back later.';
+                } else if (error.message.includes('ExceededDailyClaims')) {
+                    errorMessage = '❌ Already claimed today!';
+                } else if (error.message.includes('MustCompleteFourQuestions')) {
+                    errorMessage = '❌ Must complete all 4 questions correctly!';
+                }
+                
+                showSuccessMessage(errorMessage);
+            }
+        };
 
         window.loadOnChainLeaderboard = async function() {
             try {
@@ -1079,7 +1109,7 @@ window.claimRewardOnChain = async function() {
                     address: CONTRACT_ADDRESS,
                     abi: CONTRACT_ABI,
                     functionName: 'getTopPlayers',
-                    args: [BigInt(30)]
+                    args: [BigInt(50)]
                 });
 
                 console.log('Top players from chain:', topPlayers);
@@ -1092,6 +1122,46 @@ window.claimRewardOnChain = async function() {
                         <p style="font-size: 14px; color: #ef4444;">${error.message}</p>
                     </div>
                 `;
+            }
+        };
+
+        // MAKE RANK FETCHING GLOBALLY ACCESSIBLE
+        window.fetchPlayerRank = async function() {
+            if (!window.isWalletConnected || !window.currentAccount || !window.walletConfig) {
+                console.log('Wallet not connected, cannot fetch rank');
+                return null;
+            }
+            
+            try {
+                const topPlayers = await readContract(window.walletConfig, {
+                    address: CONTRACT_ADDRESS,
+                    abi: CONTRACT_ABI,
+                    functionName: 'getTopPlayers',
+                    args: [BigInt(50)]
+                });
+                
+                const bestTimesMap = new Map();
+                topPlayers.forEach(entry => {
+                    const address = entry.player.toLowerCase();
+                    if (!bestTimesMap.has(address) || 
+                        Number(entry.completionTime) < Number(bestTimesMap.get(address).completionTime)) {
+                        bestTimesMap.set(address, entry);
+                    }
+                });
+                
+                const uniquePlayers = Array.from(bestTimesMap.values())
+                    .sort((a, b) => Number(a.completionTime) - Number(b.completionTime));
+                
+                const playerAddress = window.currentAccount.address.toLowerCase();
+                const rankIndex = uniquePlayers.findIndex(p => p.player.toLowerCase() === playerAddress);
+                
+                if (rankIndex !== -1) {
+                    return rankIndex + 1;
+                }
+                return null;
+            } catch (error) {
+                console.log('Could not fetch rank:', error);
+                return null;
             }
         };
 
@@ -1108,7 +1178,6 @@ window.claimRewardOnChain = async function() {
                 return;
             }
 
-            // Filter to show only best time per unique address
             const bestTimesMap = new Map();
             
             players.forEach(entry => {
@@ -1119,10 +1188,9 @@ window.claimRewardOnChain = async function() {
                 }
             });
             
-            // Convert map to array and sort by time
             const uniquePlayers = Array.from(bestTimesMap.values())
                 .sort((a, b) => Number(a.completionTime) - Number(b.completionTime))
-                .slice(0, 30); // Top 30 players
+                .slice(0, 50);
 
             const fids = [...new Set(uniquePlayers.map(p => Number(p.farcasterFID)).filter(fid => fid > 0))];
             let profiles = {};
@@ -1176,7 +1244,7 @@ window.claimRewardOnChain = async function() {
                             ${avatarHtml}
                             <div class="player-info">
                                 <div class="player-name">${displayName}</div>
-                                <div class="player-time">${formatTime(Number(entry.completionTime))}</div>
+                                <div class="player-time">${window.formatTime(Number(entry.completionTime))}</div>
                                 <div class="player-address">${entry.player.substring(0, 6)}...${entry.player.substring(38)}</div>
                             </div>
                         </div>
@@ -1201,22 +1269,89 @@ window.claimRewardOnChain = async function() {
             }, 4000);
         }
 
+        window.startGame = async function() {
+            if (!window.isWalletConnected) {
+                alert('Please connect your wallet first!');
+                return;
+            }
+
+            try {
+                const playBtn = document.getElementById('playBtn');
+                playBtn.disabled = true;
+                playBtn.innerHTML = 'Confirming Transaction... <div class="loading-spinner" style="display: inline-block; width: 16px; height: 16px;"></div>';
+
+                const fid = window.getFarcasterFID();
+
+                const hash = await writeContract(window.walletConfig, {
+                    address: CONTRACT_ADDRESS,
+                    abi: CONTRACT_ABI,
+                    functionName: 'startGame',
+                    args: [BigInt(fid || 0)]
+                });
+
+                console.log('Start game transaction hash:', hash);
+                
+                const receipt = await waitForTransactionReceipt(window.walletConfig, { hash });
+                console.log('Transaction confirmed:', receipt);
+
+                if (receipt.status !== 'success') {
+                    throw new Error('Transaction failed');
+                }
+
+                window.gameState = 'playing';
+                window.currentQuestion = 0;
+                window.correctAnswers = [false, false, false, false];
+                window.totalCorrectAnswers = 0;
+                
+                document.getElementById('startScreen').classList.add('hidden');
+                document.getElementById('gameScreen').classList.remove('hidden');
+                document.getElementById('timerDisplay').classList.remove('hidden');
+                
+                window.updateProgressBoxes();
+                window.updateQuestionNumber();
+                
+                window.gameStartTime = Date.now();
+                window.currentGameTime = 0;
+                
+                window.timerInterval = setInterval(() => {
+                    window.currentGameTime = Date.now() - window.gameStartTime;
+                    document.getElementById('timer').textContent = window.formatTime(window.currentGameTime);
+                }, 100);
+                
+                window.generateQuestion();
+
+            } catch (error) {
+                console.error('Failed to start game:', error);
+                
+                const playBtn = document.getElementById('playBtn');
+                playBtn.disabled = false;
+                playBtn.textContent = 'Start Game';
+                
+                let errorMessage = '❌ Failed to start game. Please try again.';
+                if (error.message.includes('User rejected')) {
+                    errorMessage = '❌ Transaction rejected. Please try again.';
+                }
+                showSuccessMessage(errorMessage);
+            }
+        };
+
         initializeWallet();
     </script>
 
     <script>
-        let gameState = 'ready';
-        let currentQuestion = 0;
-        let correctAnswers = [false, false, false, false];
-        let correctAnswer = 0;
-        let isAnswered = false;
-        let gameStartTime = 0;
-        let currentGameTime = 0;
-        let timerInterval = null;
-        let fallTimeout = null;
-        let totalCorrectAnswers = 0; // Track total correct answers
+        window.gameState = 'ready';
+        window.currentQuestion = 0;
+        window.correctAnswers = [false, false, false, false];
+        window.correctAnswer = 0;
+        window.isAnswered = false;
+        window.gameStartTime = 0;
+        window.currentGameTime = 0;
+        window.timerInterval = null;
+        window.fallTimeout = null;
+        window.totalCorrectAnswers = 0;
+        window.playerRank = null;
 
-        function generateQuestion() {
+        window.generateQuestion = function() {
             const a = Math.floor(Math.random() * 10) + 1;
             const b = Math.floor(Math.random() * 10) + 1;
             const operations = ['+', '-', '×'];
@@ -1237,7 +1372,7 @@ window.claimRewardOnChain = async function() {
                 questionText = `${a} × ${b}`;
             }
             
-            correctAnswer = correct;
+            window.correctAnswer = correct;
             document.getElementById('question').textContent = `${questionText} = ?`;
             
             const wrongAnswers = [
@@ -1249,99 +1384,96 @@ window.claimRewardOnChain = async function() {
             const allAnswers = [correct, ...wrongAnswers.slice(0, 3)]
                 .sort(() => Math.random() - 0.5);
             
-            createFallingAnswers(allAnswers);
-        }
+            window.createFallingAnswers(allAnswers);
+        };
 
-        function createFallingAnswers(answers) {
+        window.createFallingAnswers = function(answers) {
             const fallingArea = document.getElementById('fallingArea');
             fallingArea.innerHTML = '';
-            isAnswered = false;
+            window.isAnswered = false;
             
             answers.forEach((ans, idx) => {
                 const answerDiv = document.createElement('div');
                 answerDiv.className = 'falling-answer';
                 answerDiv.textContent = ans;
-                answerDiv.onclick = () => handleAnswerClick(ans);
+                answerDiv.onclick = () => window.handleAnswerClick(ans);
                 fallingArea.appendChild(answerDiv);
             });
             
-            fallTimeout = setTimeout(() => {
-                if (!isAnswered) {
-                    handleMiss();
+            window.fallTimeout = setTimeout(() => {
+                if (!window.isAnswered) {
+                    window.handleMiss();
                 }
             }, 6000);
-        }
+        };
 
-function handleAnswerClick(selected) {
-    if (isAnswered) return;
-    
-    isAnswered = true;
-    clearTimeout(fallTimeout);
-    
-    if (selected === correctAnswer) {
-        // Play correct sound
-        const correctSound = document.getElementById('correctSound');
-        correctSound.currentTime = 0;
-        correctSound.play().catch(e => console.log('Sound play failed:', e));
-        
-        correctAnswers[currentQuestion] = true;
-        totalCorrectAnswers++; // Increment correct count
-        updateProgressBoxes();
-        showFeedback('🎉 Correct!', 'correct');
-        
-        if (currentQuestion === 3) {
-            clearInterval(timerInterval);
+        window.handleAnswerClick = function(selected) {
+            if (window.isAnswered) return;
+            
+            window.isAnswered = true;
+            clearTimeout(window.fallTimeout);
+            
+            if (selected === window.correctAnswer) {
+                const correctSound = document.getElementById('correctSound');
+                correctSound.currentTime = 0;
+                correctSound.play().catch(e => console.log('Sound play failed:', e));
+                
+                window.correctAnswers[window.currentQuestion] = true;
+                window.totalCorrectAnswers++;
+                window.updateProgressBoxes();
+                window.showFeedback('🎉 Correct!', 'correct');
+                
+                if (window.currentQuestion === 3) {
+                    clearInterval(window.timerInterval);
+                    setTimeout(() => {
+                        window.showWinScreen();
+                    }, 800);
+                } else {
+                    setTimeout(() => {
+                        window.currentQuestion++;
+                        window.updateQuestionNumber();
+                        window.generateQuestion();
+                        document.getElementById('feedback').textContent = '';
+                    }, 800);
+                }
+            } else {
+                const wrongSound = document.getElementById('wrongSound');
+                wrongSound.currentTime = 0;
+                wrongSound.play().catch(e => console.log('Sound play failed:', e));
+                
+                window.showFeedback('❌ Wrong!', 'wrong');
+                clearInterval(window.timerInterval);
+                setTimeout(() => {
+                    window.showGameOver();
+                }, 800);
+            }
+        };
+
+        window.handleMiss = function() {
+            const wrongSound = document.getElementById('wrongSound');
+            wrongSound.currentTime = 0;
+            wrongSound.play().catch(e => console.log('Sound play failed:', e));
+            
+            window.showFeedback('⏱️ Too slow!', 'wrong');
+            clearInterval(window.timerInterval);
             setTimeout(() => {
-                showWinScreen();
+                window.showGameOver();
             }, 800);
-        } else {
-            setTimeout(() => {
-                currentQuestion++;
-                updateQuestionNumber();
-                generateQuestion();
-                document.getElementById('feedback').textContent = '';
-            }, 800);
-        }
-    } else {
-        // Play wrong sound
-        const wrongSound = document.getElementById('wrongSound');
-        wrongSound.currentTime = 0;
-        wrongSound.play().catch(e => console.log('Sound play failed:', e));
-        
-        showFeedback('❌ Wrong!', 'wrong');
-        clearInterval(timerInterval);
-        setTimeout(() => {
-            showGameOver();
-        }, 800);
-    }
-}
+        };
 
-       function handleMiss() {
-    // Play wrong sound for timeout
-    const wrongSound = document.getElementById('wrongSound');
-    wrongSound.currentTime = 0;
-    wrongSound.play().catch(e => console.log('Sound play failed:', e));
-    
-    showFeedback('⏱️ Too slow!', 'wrong');
-    clearInterval(timerInterval);
-    setTimeout(() => {
-        showGameOver();
-    }, 800);
-}
-
-        function showFeedback(text, type) {
+        window.showFeedback = function(text, type) {
             const feedback = document.getElementById('feedback');
             feedback.textContent = text;
             feedback.className = `feedback ${type}`;
-        }
+        };
 
-        function updateProgressBoxes() {
+        window.updateProgressBoxes = function() {
             const boxes = document.querySelectorAll('.progress-box');
             boxes.forEach((box, idx) => {
-                if (correctAnswers[idx]) {
+                if (window.correctAnswers[idx]) {
                     box.className = 'progress-box correct';
                     box.innerHTML = '✓';
-                } else if (idx === currentQuestion) {
+                } else if (idx === window.currentQuestion) {
                     box.className = 'progress-box active';
                     box.textContent = idx + 1;
                 } else {
@@ -1349,110 +1481,90 @@ function handleAnswerClick(selected) {
                     box.textContent = idx + 1;
                 }
             });
-        }
+        };
 
-        function updateQuestionNumber() {
-            document.getElementById('questionNumber').textContent = `Question ${currentQuestion + 1} of 4`;
-        }
+        window.updateQuestionNumber = function() {
+            document.getElementById('questionNumber').textContent = `Question ${window.currentQuestion + 1} of 4`;
+        };
 
-        function formatTime(ms) {
+        window.formatTime = function(ms) {
             const seconds = Math.floor(ms / 1000);
             const milliseconds = Math.floor((ms % 1000) / 10);
             return `${seconds}.${milliseconds.toString().padStart(2, '0')}s`;
-        }
+        };
 
-        function startGame() {
-            if (!window.isWalletConnected) {
-                alert('Please connect your wallet first!');
-                return;
+        window.showWinScreen = async function() {
+            const winSound = document.getElementById('winSound');
+            winSound.currentTime = 0;
+            winSound.play().catch(e => console.log('Sound play failed:', e));
+            
+            document.getElementById('gameScreen').classList.add('hidden');
+            document.getElementById('resultScreen').classList.remove('hidden');
+            document.getElementById('timerDisplay').classList.add('hidden');
+            
+            document.getElementById('resultIcon').textContent = '🏆';
+            document.getElementById('resultTitle').textContent = 'You Win!';
+            document.getElementById('resultText').textContent = 'Perfect Score! 4/4 correct! 🎉';
+            document.getElementById('resultTime').textContent = `⏱️ ${window.formatTime(window.currentGameTime)}`;
+            
+            const submitBtn = document.querySelector('[onclick="submitScoreOnChain()"]');
+            const claimBtn = document.querySelector('[onclick="claimRewardOnChain()"]');
+            const shareBtn = document.querySelector('[onclick="shareGame()"]');
+            if (submitBtn) submitBtn.style.display = 'block';
+            if (claimBtn) claimBtn.style.display = 'block';
+            if (shareBtn) shareBtn.style.display = 'inline-block';
+            
+            // AUTO-FETCH PLAYER'S RANK
+            if (window.fetchPlayerRank) {
+                window.playerRank = await window.fetchPlayerRank();
+                console.log('Player rank fetched on win screen:', window.playerRank);
             }
+        };
 
-            gameState = 'playing';
-            currentQuestion = 0;
-            correctAnswers = [false, false, false, false];
-            totalCorrectAnswers = 0; // Reset correct count
+        window.showGameOver = function() {
+            document.getElementById('gameScreen').classList.add('hidden');
+            document.getElementById('resultScreen').classList.remove('hidden');
+            document.getElementById('timerDisplay').classList.add('hidden');
             
-            document.getElementById('startScreen').classList.add('hidden');
-            document.getElementById('gameScreen').classList.remove('hidden');
-            document.getElementById('timerDisplay').classList.remove('hidden');
+            document.getElementById('resultIcon').textContent = '💥';
+            document.getElementById('resultTitle').textContent = 'Game Over!';
+            document.getElementById('resultText').textContent = `You got ${window.correctAnswers.filter(Boolean).length} out of 4 correct`;
+            document.getElementById('resultTime').classList.add('hidden');
             
-            updateProgressBoxes();
-            updateQuestionNumber();
-            
-            gameStartTime = Date.now();
-            currentGameTime = 0;
-            
-            timerInterval = setInterval(() => {
-                currentGameTime = Date.now() - gameStartTime;
-                document.getElementById('timer').textContent = formatTime(currentGameTime);
-            }, 100);
-            
-            generateQuestion();
-        }
+            const submitBtn = document.querySelector('[onclick="submitScoreOnChain()"]');
+            const claimBtn = document.querySelector('[onclick="claimRewardOnChain()"]');
+            const shareBtn = document.querySelector('[onclick="shareGame()"]');
+            if (submitBtn) submitBtn.style.display = 'none';
+            if (claimBtn) claimBtn.style.display = 'none';
+            if (shareBtn) shareBtn.style.display = 'none';
+        };
 
-function showWinScreen() {
-    // Play win sound
-    const winSound = document.getElementById('winSound');
-    winSound.currentTime = 0;
-    winSound.play().catch(e => console.log('Sound play failed:', e));
-    
-    document.getElementById('gameScreen').classList.add('hidden');
-    document.getElementById('resultScreen').classList.remove('hidden');
-    document.getElementById('timerDisplay').classList.add('hidden');
-    
-    document.getElementById('resultIcon').textContent = '🏆';
-    document.getElementById('resultTitle').textContent = 'You Win!';
-    document.getElementById('resultText').textContent = 'Perfect Score! 4/4 correct! 🎉';
-    document.getElementById('resultTime').textContent = `⏱️ ${formatTime(currentGameTime)}`;
-    
-    // Show buttons only if 4/4 correct
-    const submitBtn = document.querySelector('[onclick="submitScoreOnChain()"]');
-    const claimBtn = document.querySelector('[onclick="claimRewardOnChain()"]');
-    const shareBtn = document.querySelector('[onclick="shareGame()"]');
-    if (submitBtn) submitBtn.style.display = 'block';
-    if (claimBtn) claimBtn.style.display = 'block';
-    if (shareBtn) shareBtn.style.display = 'inline-block';
-}
-
-function showGameOver() {
-    document.getElementById('gameScreen').classList.add('hidden');
-    document.getElementById('resultScreen').classList.remove('hidden');
-    document.getElementById('timerDisplay').classList.add('hidden');
-    
-    document.getElementById('resultIcon').textContent = '💥';
-    document.getElementById('resultTitle').textContent = 'Game Over!';
-    document.getElementById('resultText').textContent = `You got ${correctAnswers.filter(Boolean).length} out of 4 correct`;
-    document.getElementById('resultTime').classList.add('hidden');
-    
-    // Hide submit, claim, and share buttons if not 4/4
-    const submitBtn = document.querySelector('[onclick="submitScoreOnChain()"]');
-    const claimBtn = document.querySelector('[onclick="claimRewardOnChain()"]');
-    const shareBtn = document.querySelector('[onclick="shareGame()"]');
-    if (submitBtn) submitBtn.style.display = 'none';
-    if (claimBtn) claimBtn.style.display = 'none';
-    if (shareBtn) shareBtn.style.display = 'none';
-}
-
-        function playAgain() {
-            gameState = 'ready';
+        window.playAgain = function() {
+            window.gameState = 'ready';
+            window.playerRank = null;
             document.getElementById('resultScreen').classList.add('hidden');
             document.getElementById('startScreen').classList.remove('hidden');
             document.getElementById('resultTime').classList.remove('hidden');
+            
+            const playBtn = document.getElementById('playBtn');
+            playBtn.disabled = false;
+            playBtn.textContent = 'Start Game';
+            playBtn.innerHTML = 'Start Game';
             
             const boxes = document.querySelectorAll('.progress-box');
             boxes.forEach((box, idx) => {
                 box.className = 'progress-box inactive';
                 box.textContent = idx + 1;
             });
-        }
+        };
 
-        function showLeaderboard() {
+        window.showLeaderboard = function() {
             document.getElementById('resultScreen').classList.add('hidden');
             document.getElementById('leaderboardScreen').classList.remove('hidden');
             window.loadOnChainLeaderboard();
-        }
+        };
 
-        function toggleLeaderboard() {
+        window.toggleLeaderboard = function() {
             const leaderboardScreen = document.getElementById('leaderboardScreen');
             const startScreen = document.getElementById('startScreen');
             const gameScreen = document.getElementById('gameScreen');
@@ -1465,27 +1577,46 @@ function showGameOver() {
                 resultScreen.classList.add('hidden');
                 window.loadOnChainLeaderboard();
             } else {
-                hideLeaderboard();
+                window.hideLeaderboard();
             }
-        }
+        };
 
-        function hideLeaderboard() {
+        window.hideLeaderboard = function() {
             document.getElementById('leaderboardScreen').classList.add('hidden');
             document.getElementById('startScreen').classList.remove('hidden');
-            gameState = 'ready';
-        }
+            window.gameState = 'ready';
+            
+            const playBtn = document.getElementById('playBtn');
+            playBtn.disabled = false;
+            playBtn.textContent = 'Start Game';
+            playBtn.innerHTML = 'Start Game';
+        };
 
-   function shareGame() {
-    const shareText = encodeURIComponent(
-        `🔥 Just completed Quick Math in ${formatTime(currentGameTime)}!\n\n` +
-        `📋 4/4 correct - Score submitted onchain.\n` +
-        `➤ Claimed my reward.\n` +
-        `🥷🏻 Beat my time if you can!\n`
-    );
+window.shareGame = function() {
+    let shareText = `🔥 Just completed Quick Math in ${window.formatTime(window.currentGameTime)}!\n\n`;
+    
+    // Add rank if available
+    if (window.playerRank !== null) {
+        if (window.playerRank === 1) {
+            shareText += '🥇 Rank #1\n';
+        } else if (window.playerRank === 2) {
+            shareText += '🥈 Rank #2\n';
+        } else if (window.playerRank === 3) {
+            shareText += '🥉 Rank #3\n';
+        } else {
+            shareText += `🏆 Rank #${window.playerRank}\n`;
+        }
+    }
+    
+    shareText += '📋 4/4 correct - Score submitted onchain.\n';
+    shareText += '➤ Claimed my reward.\n';
+    shareText += '🥷🏻 Beat my time if you can!';
+    
+    const encodedText = encodeURIComponent(shareText);
     const shareUrl = encodeURIComponent(window.location.href);
-    const castUrl = `https://farcaster.xyz/~/compose?text=${shareText}&embeds[]=${shareUrl}`;
+    const castUrl = `https://farcaster.xyz/~/compose?text=${encodedText}&embeds[]=${shareUrl}`;
     window.open(castUrl, '_blank');
-}
+};
     </script>
 </body>
-</html> -->
+</html>

@@ -59,7 +59,7 @@ When accessed outside Farcaster, the game uses Reown AppKit for universal wallet
 
 ```javascript
 // Reown Project ID
-const REOWN_PROJECT_ID = 'e0dd881bad824ac3418617434a79f917';
+const REOWN_PROJECT_ID = '******************';
 
 // Reown AppKit initialization
 const appKitModal = createAppKit({ 

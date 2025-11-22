@@ -10,7 +10,7 @@ const appUrl = "https://quick-mathquiz.vercel.app/";
 // Choose your notification:
 const title = "⏱️ Math is not easy?";
 // const title = "⏱️ New Prize Pool Added!";
-const body = "Wohhoo! you are eligble to solve math problems & earn rewards.";
+const body = "Wohhoo! you are eligble to solve math problems & earn rewards.Exclusive NFTs await for you.";
 const BATCH_SIZE = 40;
 const DELAY_BETWEEN_BATCHES = 3000;
 const MAX_RETRIES = 1;
