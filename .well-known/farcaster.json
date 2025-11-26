@@ -2,13 +2,13 @@
   "frame": {
     "name": "Quick Math",
     "version": "1",
-    "iconUrl": "https://quick-mathquiz-tau.vercel.app/icon.png",
-    "homeUrl": "https://quick-mathquiz-tau.vercel.app",
-    "imageUrl": "https://quick-mathquiz-tau.vercel.app/image.png",
+    "iconUrl": "https://quick-mathquiz.vercel.app/icon.png",
+    "homeUrl": "https://quick-mathquiz.vercel.app",
+    "imageUrl": "https://quick-mathquiz.vercel.app/image.png",
     "buttonTitle": "Quick Math",
-    "splashImageUrl": "https://quick-mathquiz-tau.vercel.app/splash.png",
+    "splashImageUrl": "https://quick-mathquiz.vercel.app/splash.png",
     "splashBackgroundColor": "#cce5ff",
-    "webhookUrl": "https://quick-mathquiz-tau.vercel.app/api/webhook",
+    "webhookUrl": "https://quick-mathquiz.vercel.app/api/webhook",
     "subtitle": "Quick Math",
     "description": "Play Game, solve maths and claim reward",
     "primaryCategory": "games",
@@ -20,7 +20,10 @@
   },
   "accountAssociation": {
     "header": "eyJmaWQiOjUxMzMxOCwidHlwZSI6ImF1dGgiLCJrZXkiOiIweGNCYTI3QTE5ZUJBNzU4N0RFNzI1MDJhNDYxYTAyMWNGNTNBQ0Q4RkYifQ",
-    "payload": "eyJkb21haW4iOiJxdWljay1tYXRocXVpei10YXUudmVyY2VsLmFwcCJ9",
-    "signature": "kuv4e/Zi+59smKC024B/+eeGaghRw5T9wcBwib6sWHVeW1gcbzGZpHhp/m0r1pJcbTD66Errju5cVHMA5oDkrxw="
+    "payload": "eyJkb21haW4iOiJxdWljay1tYXRocXVpei52ZXJjZWwuYXBwIn0",
+    "signature": "KoaSsgHiB4AWG/6oxnpRuVAquZrkORcyiR60dctd2h5zAU+fQFMSHCo0JR0cbqKT0wJC13+MCVnRaj77/0/NLRs="
+  },
+  "baseBuilder": {
+    "allowedAddresses": ["0x3D6Ba0053e7c1B2c36FFc8748a5567bA8AbF8694"]
   }
 }
